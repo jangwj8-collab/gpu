@@ -1,8 +1,16 @@
+import bcrypt from "bcryptjs";
+
 export default async function handler(req, res) {
   const token = process.env.GITHUB_TOKEN;
   const repo  = process.env.GITHUB_REPO;
 
-  const booking = req.body;
+  const { password, ...booking } = req.body;
+
+  if (!password) {
+    return res.status(400).json({ error: "비밀번호 필요" });
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
 
   const title = `[GPU] ${booking.server} | ${booking.gpu} | ${booking.date} | ${booking.slot}`;
 
@@ -10,7 +18,11 @@ export default async function handler(req, res) {
 ### GPU 예약
 
 \`\`\`json
-${JSON.stringify(booking, null, 2)}
+${JSON.stringify(
+  { ...booking, passwordHash },
+  null,
+  2
+)}
 \`\`\`
 `;
 

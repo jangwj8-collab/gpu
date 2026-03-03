@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GPU 예약 스케줄러</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=DM+Mono:wght@300;400;500&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&family=JetBrains+Mono:wght@400;500&family=Pretendard:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg: #f5f2eb;
@@ -18,7 +18,7 @@
   --green: #2d5a27;
   --red: #c0392b;
   --mono: 'DM Mono', monospace;
-  --sans: 'Syne', sans-serif;
+  --sans: 'Pretendard', sans-serif;
   --body: 'Gowun Dodum', sans-serif;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -464,6 +464,10 @@ async function createBookingIssue(booking) {
   return data.issueNumber;
 }
 
+async function syncBookings() {
+  await loadBookings();
+  showToast('동기화 완료', `예약 ${bookings.length}건 로드됨`);
+}
 async function closeBookingIssue(issueNumber) {
   const res = await fetch(`${API_BASE}/close`, {
     method: 'POST',
@@ -490,9 +494,6 @@ function demoBookings() {
   const fmt = d => fmtDate(d);
   const add = (d,n) => { const r=new Date(d); r.setDate(r.getDate()+n); return r; };
   return [
-    { id:'d1', server:'sv1', gpu:'GPU 0', date:fmt(today),      slot:'오전', name:'김지훈', purpose:'LLaMA 파인튜닝', issueNumber: null },
-    { id:'d2', server:'sv1', gpu:'GPU 1', date:fmt(add(today,1)),slot:'오후', name:'이수진', purpose:'ViT 학습', issueNumber: null },
-    { id:'d3', server:'sv2', gpu:'GPU 2', date:fmt(add(today,2)),slot:'오전', name:'박재원', purpose:'PPO 실험', issueNumber: null },
   ];
 }
 
@@ -647,10 +648,15 @@ function renderSidebar() {
 }
 
 // ── BOOKING ──
+
 function openBooking(date, slot) {
-  if (!currentUser) { showToast('이름 필요', '먼저 이름을 입력해주세요.', false); return; }
-  if (!GITHUB_TOKEN) { showToast('설정 필요', '설정 가이드에서 GitHub Token을 입력해주세요.', false); return; }
+  if (!currentUser) { 
+    showToast('이름 필요', '먼저 이름을 입력해주세요.', false); 
+    return; 
+  }
+
   pendingBook = { server: currentServer.id, date, slot };
+
   document.getElementById('modalTitle').textContent = `${date} ${slot} 예약`;
   document.getElementById('modalSubtitle').textContent = `${currentServer.name} · ${currentServer.gpuModel}`;
   document.getElementById('bookPurpose').value = '';
@@ -664,9 +670,11 @@ function openBooking(date, slot) {
       ${gpu}${booked?'<br><span style="font-size:0.58rem;opacity:0.7;">예약됨</span>':''}
     </button>`;
   }).join('');
+
   document.getElementById('bookingOverlay').classList.add('open');
 }
 
+  
 function closeBooking() { document.getElementById('bookingOverlay').classList.remove('open'); pendingBook=null; }
 
 async function submitBooking() {

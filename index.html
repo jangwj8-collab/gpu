@@ -312,6 +312,11 @@ header {
       <label class="form-label">사용 목적 (선택)</label>
       <textarea class="form-textarea" id="bookPurpose" placeholder="예: LLaMA 파인튜닝, ViT 학습 등"></textarea>
     </div>
+    <div class="form-group">
+      <label class="form-label">예약 비밀번호</label>
+      <input type="password" class="form-input" id="bookPassword"
+             placeholder="취소 시 필요합니다" />
+    </div>
     <div class="modal-footer">
       <button class="btn btn-primary" id="submitBtn" onclick="submitBooking()" style="flex:1;">예약 확정</button>
       <button class="btn btn-ghost" onclick="closeBooking()">취소</button>
@@ -434,14 +439,24 @@ async function syncBookings() {
   showToast('동기화 완료', `예약 ${bookings.length}건 로드됨`);
 }
 async function closeBookingIssue(issueNumber) {
+  const password = prompt("예약 비밀번호를 입력하세요\n(관리자는 관리자 비밀번호 입력)");
+
+  if (!password) throw new Error("비밀번호 필요");
+
   const res = await fetch(`${API_BASE}/close`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ issueNumber }),
+    body: JSON.stringify({ issueNumber, password }),
   });
 
-  if (!res.ok) throw new Error('취소 실패');
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.error || '취소 실패');
+  }
 }
+
+  
 // ── LABEL 자동 생성 ──
 async function ensureLabel() {
   try {
@@ -647,6 +662,11 @@ async function submitBooking() {
   if (!selected.length) { showToast('GPU 선택', 'GPU를 하나 이상 선택하세요.', false); return; }
 
   const purpose = document.getElementById('bookPurpose').value.trim();
+  const password = document.getElementById('bookPassword').value.trim();
+  if (!password) {
+    showToast('비밀번호 필요', '예약 비밀번호를 입력하세요.', false);
+    return;
+  }
   const submitBtn = document.getElementById('submitBtn');
   submitBtn.disabled = true;
   submitBtn.textContent = '저장 중...';
@@ -662,7 +682,7 @@ async function submitBooking() {
       const booking = {
         id: uid(), server: pendingBook.server, gpu,
         date: pendingBook.date, slot: pendingBook.slot,
-        name: currentUser, purpose,
+        name: currentUser, purpose,  password,
         created_at: new Date().toISOString(),
       };
 

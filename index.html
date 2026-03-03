@@ -274,32 +274,7 @@ header {
 <!-- ══ PAGE: 설정 가이드 ══ -->
 <div id="page-guide" class="page">
 <div class="container">
-  <div class="section-title">설정 가이드 (GitHub Issues 연동)</div>
-  <div style="color:var(--muted);font-size:0.82rem;margin-bottom:1.5rem;">Google Sheets 없이 GitHub만으로 예약 데이터를 관리합니다.</div>
-
-  <div class="setup-step">
-    <div class="step-num">1</div>
-    <div>
-      <div class="step-title">GitHub Personal Access Token 발급</div>
-      <div class="step-desc">
-        GitHub → 우측 상단 프로필 → Settings → Developer settings<br>
-        → Personal access tokens → Tokens (classic) → Generate new token<br>
-        → 권한: <span class="code-inline">repo</span> 체크 → 생성 후 토큰 복사 (<span class="code-inline">ghp_xxx...</span>)
-      </div>
-    </div>
-  </div>
-
-  <div class="setup-step">
-    <div class="step-num">2</div>
-    <div>
-      <div class="step-title">index.html 상단 설정값 입력</div>
-      <div class="step-desc">
-        이 파일 스크립트 최상단의 두 줄을 수정하세요:<br>
-        <span class="code-inline">const GITHUB_TOKEN = 'ghp_여기에붙여넣기';</span><br>
-        <span class="code-inline">const GITHUB_REPO  = '계정명/레포이름';</span>
-      </div>
-    </div>
-  </div>
+  <div class="section-title">설정 가이드 with Vercel.com</div>
 
   <div class="setup-step">
     <div class="step-num">3</div>
@@ -310,21 +285,6 @@ header {
         예약이 생성되면 Issues 탭에서 데이터를 직접 볼 수 있어요.
       </div>
     </div>
-  </div>
-
-  <div class="setup-step">
-    <div class="step-num">4</div>
-    <div>
-      <div class="step-title">서버·GPU 정보 수정</div>
-      <div class="step-desc">
-        스크립트 상단 <span class="code-inline">const SERVERS = [...]</span> 배열을 실제 서버 이름과 GPU 개수에 맞게 수정하세요.
-      </div>
-    </div>
-  </div>
-
-  <div class="notice-box notice-yellow" style="margin-bottom:1rem;">
-    ⚠️ <strong>토큰 보안 주의</strong>: GITHUB_TOKEN을 public 레포에 올리면 GitHub이 자동으로 무효화해요.<br>
-    해결: 레포를 <strong>private</strong>으로 유지하거나, 토큰 권한을 <strong>issues only</strong>로 최소화하세요.
   </div>
 
   <div class="notice-box notice-green">

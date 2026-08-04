@@ -92,6 +92,16 @@ header {
 .booking-block.others { background: #f0e8e8; border-left: 3px solid var(--red); color: var(--red); }
 .booking-name { font-weight: 600; }
 .booking-gpu { opacity: 0.75; font-size: 0.62rem; }
+/* 기본 사용자 안내. 실제 예약이 아니므로 흐리게, 클릭도 통과시킨다.
+   칸이 길어지지 않도록 한 줄로 고정하고 넘치면 말줄임 처리한다. */
+.booking-block.ghost {
+  background: transparent; border-left: 3px dashed var(--border2); color: var(--muted);
+  opacity: 0.55; padding: 1px 6px; margin-bottom: 2px; pointer-events: none;
+  font-size: 0.62rem; line-height: 1.5;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.booking-block.ghost .booking-gpu { font-family: var(--mono); opacity: 0.85; margin-right: 4px; }
+.booking-block.ghost .booking-name { font-weight: 500; }
 .add-hint { color: var(--border2); font-size: 0.62rem; font-family: var(--mono); position: absolute; bottom: 5px; right: 6px; opacity: 0; transition: opacity 0.15s; }
 .cal-cell:not(.past):hover .add-hint { opacity: 1; }
 
@@ -135,6 +145,7 @@ header {
 .gpu-select-btn { padding: 8px 4px; border: 2px solid var(--border2); border-radius: 4px; background: var(--bg); font-family: var(--mono); font-size: 0.72rem; cursor: pointer; text-align: center; transition: all 0.15s; color: var(--muted); }
 .gpu-select-btn:hover:not(:disabled) { border-color: var(--text); color: var(--text); }
 .gpu-select-btn.selected:not(:disabled) { background: var(--text); color: var(--bg); border-color: var(--text); }
+.gpu-owner { display: block; font-size: 0.58rem; opacity: 0.7; margin-top: 2px; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 11px 22px; border-radius: 4px; border: 2px solid transparent; cursor: pointer; font-family: var(--sans); font-size: 0.82rem; font-weight: 700; transition: all 0.15s; }
 .btn-primary { background: var(--text); color: var(--bg); border-color: var(--text); }
 .btn-primary:hover { background: var(--green); border-color: var(--green); }
@@ -360,6 +371,17 @@ const SERVERS = [
   { id: 'sv5090',    name: '5090',         gpuCount: 4, gpuModel: 'RTX 5090' },
 ];
 
+// 서버별 GPU 기본 사용자.
+// 달력·예약 모달에 흐리게 표시만 될 뿐 예약을 막지는 않습니다. 필요하면 누구나 예약 가능합니다.
+const DEFAULT_USERS = {
+  blackwell: {
+    'GPU 0': '최재걸 교수님', 'GPU 1': '최재걸 교수님',
+    'GPU 2': '장혜진',        'GPU 3': '장혜진',
+    'GPU 4': '장원제',        'GPU 5': '장원제',
+    'GPU 6': '박성민',        'GPU 7': '박성민',
+  },
+};
+
 // 예약 보관 기간(일). 이보다 오래된 예약은 목록에서 제외되고 자동으로 정리됩니다.
 const RETENTION_DAYS = 100;
 // ════════════════════════════════════════
@@ -551,11 +573,53 @@ function selectServer(id) {
   renderAll();
 }
 
+// 현재 서버의 GPU 이름 목록
+function gpuList() {
+  return Array.from({length:currentServer.gpuCount},(_,i)=>`GPU ${i}`);
+}
+
+// 현재 서버의 기본 사용자 표. 지정이 없으면 null.
+function ownerMap() { return DEFAULT_USERS[currentServer.id] || null; }
+
+function ownerOf(gpu) {
+  const map = ownerMap();
+  return map ? map[gpu] : undefined;
+}
+
 function renderGPULegend() {
-  const gpus = Array.from({length:currentServer.gpuCount},(_,i)=>`GPU ${i}`);
+  const gpus = gpuList();
   document.getElementById('gpuLegend').innerHTML =
     `<div class="gpu-chip ${gpuFilter==='all'?'selected':''}" onclick="setFilter('all')">전체</div>` +
-    gpus.map(g=>`<div class="gpu-chip ${gpuFilter===g?'selected':''}" onclick="setFilter('${g}')">${g}</div>`).join('');
+    gpus.map(g=>{
+      const owner = ownerOf(g);
+      return `<div class="gpu-chip ${gpuFilter===g?'selected':''}" onclick="setFilter('${g}')">${g}${
+        owner?` <span style="opacity:0.6;">${owner}</span>`:''}</div>`;
+    }).join('');
+}
+
+// 예약이 없는 GPU에 한해 기본 사용자를 흐리게 보여준다.
+// 같은 사람이 쓰는 GPU는 한 줄로 묶어 칸이 길어지지 않게 한다.
+function renderDefaultOwners(bookedGpus, filter) {
+  if (!ownerMap()) return '';
+
+  const gpus = gpuList().filter(g =>
+    (!filter || g === filter) && !bookedGpus.has(g) && ownerOf(g)
+  );
+  if (!gpus.length) return '';
+
+  const groups = [];
+  for (const g of gpus) {
+    const owner = ownerOf(g);
+    const last = groups[groups.length-1];
+    if (last && last.owner === owner) last.gpus.push(g);
+    else groups.push({ owner, gpus: [g] });
+  }
+
+  return groups.map(gr => `<div class="booking-block ghost"
+      title="GPU ${gr.gpus.map(g=>g.slice(4)).join(', ')} 기본 사용자: ${gr.owner} · 예약이 없으면 누구나 예약할 수 있습니다">
+      <span class="booking-gpu">${gr.gpus.map(g=>g.slice(4)).join(',')}</span>
+      <span class="booking-name">${gr.owner}</span>
+    </div>`).join('');
 }
 
 function setFilter(g) { gpuFilter = g; renderGPULegend(); renderCalendar(); }
@@ -602,8 +666,10 @@ function renderCalendar() {
         </div>`;
       }).join('');
 
+      const ghosts = past ? '' : renderDefaultOwners(new Set(cells.map(b=>b.gpu)), filter);
+
       html += `<div class="cal-cell${past?' past':''}"
-        ${!past?`onclick="openBooking('${dateStr}','${slot}')"`:''}>${blocks}
+        ${!past?`onclick="openBooking('${dateStr}','${slot}')"`:''}>${blocks}${ghosts}
         ${!past?'<span class="add-hint">+ 예약</span>':''}
       </div>`;
     });
@@ -629,12 +695,13 @@ function renderSidebar() {
       </div>`).join('');
 
   const todayStr = fmtDate(new Date());
-  const gpus = Array.from({length:currentServer.gpuCount},(_,i)=>`GPU ${i}`);
-  document.getElementById('availSummary').innerHTML = gpus.map(gpu => {
+  document.getElementById('availSummary').innerHTML = gpuList().map(gpu => {
     const am = bookings.some(b=>b.server===currentServer.id&&b.date===todayStr&&b.slot==='오전'&&b.gpu===gpu);
     const pm = bookings.some(b=>b.server===currentServer.id&&b.date===todayStr&&b.slot==='오후'&&b.gpu===gpu);
+    const owner = ownerOf(gpu);
     return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.73rem;">
-      <span style="flex:1;font-family:var(--mono);font-weight:500;">${gpu}</span>
+      <span style="flex:1;font-family:var(--mono);font-weight:500;">${gpu}${
+        owner?`<span style="opacity:0.5;font-weight:400;"> ${owner}</span>`:''}</span>
       <span style="padding:2px 7px;border-radius:3px;font-size:0.63rem;background:${am?'#fde8e8':'#e8f0e7'};color:${am?'var(--red)':'var(--green)'};">오전 ${am?'예약됨':'가능'}</span>
       <span style="padding:2px 7px;border-radius:3px;font-size:0.63rem;background:${pm?'#fde8e8':'#e8f0e7'};color:${pm?'var(--red)':'var(--green)'};">오후 ${pm?'예약됨':'가능'}</span>
     </div>`;
@@ -655,13 +722,16 @@ function openBooking(date, slot) {
   document.getElementById('modalSubtitle').textContent = `${currentServer.name} · ${currentServer.gpuModel}`;
   document.getElementById('bookPurpose').value = '';
 
-  const gpus = Array.from({length:currentServer.gpuCount},(_,i)=>`GPU ${i}`);
-  document.getElementById('gpuSelectGrid').innerHTML = gpus.map(gpu => {
+  document.getElementById('gpuSelectGrid').innerHTML = gpuList().map(gpu => {
     const booked = bookings.some(b=>b.server===currentServer.id&&b.date===date&&b.slot===slot&&b.gpu===gpu);
-    return `<button class="gpu-select-btn${booked?' selected':''}"
+    const owner = ownerOf(gpu);
+    // 예약됨 표시가 우선. 비어 있으면 기본 사용자를 안내하되 선택은 막지 않는다.
+    const note = booked ? '예약됨' : owner;
+    return `<button class="gpu-select-btn${booked?' selected':''}" data-gpu="${gpu}"
       onclick="this.classList.toggle('selected')"
-      ${booked?'disabled style="opacity:0.4;cursor:not-allowed;"':''}>
-      ${gpu}${booked?'<br><span style="font-size:0.58rem;opacity:0.7;">예약됨</span>':''}
+      ${booked?'disabled style="opacity:0.4;cursor:not-allowed;"':''}
+      ${owner?`title="기본 사용자: ${owner}"`:''}>
+      ${gpu}${note?`<span class="gpu-owner">${note}</span>`:''}
     </button>`;
   }).join('');
 
@@ -689,7 +759,7 @@ async function submitBooking() {
   try {
     await ensureLabel();
     for (const btn of selected) {
-      const gpu = btn.textContent.replace(/예약됨/g,'').trim();
+      const gpu = btn.dataset.gpu;
       const conflict = bookings.some(b=>b.server===pendingBook.server&&b.date===pendingBook.date&&b.slot===pendingBook.slot&&b.gpu===gpu);
       if (conflict) { showToast('충돌', `${gpu}는 이미 예약되었습니다.`, false); continue; }
 

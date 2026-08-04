@@ -351,11 +351,17 @@ header {
 const GITHUB_REPO  = 'jangwj8-collab/gpu';     // ← 예: jihoon/gpu-scheduler
 
 // 서버 목록
+// ※ id는 예약 데이터의 키입니다. 기존 예약과 연결이 끊기므로 절대 바꾸지 마세요.
 const SERVERS = [
-  { id: 'sv1', name: 'Server-01', gpuCount: 4, gpuModel: 'RTX 4090' },
-  { id: 'sv2', name: 'not available', gpuCount: 4, gpuModel: 'RTX 4090'  },
-  { id: 'sv3', name: 'not available', gpuCount: 4, gpuModel: 'RTX 4090' },
+  { id: 'blackwell', name: 'blackwell',    gpuCount: 8, gpuModel: 'Blackwell' },
+  { id: 'sv1',       name: '4090 (ad001)', gpuCount: 4, gpuModel: 'RTX 4090' },
+  { id: 'ad002',     name: '4090 (ad002)', gpuCount: 4, gpuModel: 'RTX 4090' },
+  { id: 'ad003',     name: '4090 (ad003)', gpuCount: 4, gpuModel: 'RTX 4090' },
+  { id: 'sv5090',    name: '5090',         gpuCount: 4, gpuModel: 'RTX 5090' },
 ];
+
+// 예약 보관 기간(일). 이보다 오래된 예약은 목록에서 제외되고 자동으로 정리됩니다.
+const RETENTION_DAYS = 100;
 // ════════════════════════════════════════
 
 // ── GitHub Issues API ──
@@ -409,12 +415,20 @@ function setLoading(on) {
 // ── GITHUB ISSUES API ──
 const API_BASE = '/api';
 
+// 보관 기간이 지난 예약을 걸러낼 기준 날짜(YYYY-MM-DD)
+function retentionCutoff() {
+  const d = new Date();
+  d.setDate(d.getDate() - RETENTION_DAYS);
+  return fmtDate(d);
+}
+
 async function loadBookings() {
   setLoading(true);
   try {
     const res = await fetch(`${API_BASE}/bookings`);
     if (!res.ok) throw new Error('로드 실패');
-    bookings = await res.json();
+    const cutoff = retentionCutoff();
+    bookings = (await res.json()).filter(b => b.date && b.date >= cutoff);
   } catch (err) {
     showToast('로드 실패', err.message, false);
   }
@@ -527,7 +541,7 @@ function renderAll() {
 function renderServerTabs() {
   document.getElementById('serverTabs').innerHTML = SERVERS.map(s =>
     `<button class="server-tab ${s.id===currentServer.id?'active':''}" onclick="selectServer('${s.id}')">
-      ${s.name} <span style="opacity:0.55;font-size:0.63rem;">${s.gpuModel}</span>
+      ${s.name} <span style="opacity:0.55;font-size:0.63rem;">${s.gpuCount}× ${s.gpuModel}</span>
     </button>`).join('');
 }
 

@@ -1,31 +1,20 @@
+import { RETENTION_DAYS, cutoffDate, fetchOpenBookings } from './_lib.js';
+
 export default async function handler(req, res) {
   const token = process.env.GITHUB_TOKEN;
   const repo  = process.env.GITHUB_REPO;
 
-  const ghRes = await fetch(
-    `https://api.github.com/repos/${repo}/issues?labels=gpu-booking&state=open&per_page=100`,
-    {
-      headers: {
-        Authorization: `token ${token}`,
-        Accept: 'application/vnd.github.v3+json',
-      },
-    }
-  );
-
-  if (!ghRes.ok) {
+  let bookings;
+  try {
+    bookings = await fetchOpenBookings(repo, token);
+  } catch (err) {
     return res.status(500).json({ error: 'GitHub API 실패' });
   }
 
-  const issues = await ghRes.json();
+  // 보관 기간(기본 100일)이 지난 예약은 응답에서 제외한다.
+  // 실제 Issue close는 /api/cleanup(하루 1회 cron)이 담당한다.
+  const cutoff = cutoffDate(RETENTION_DAYS);
+  const fresh = bookings.filter(b => b.date && b.date >= cutoff);
 
-  const bookings = issues.map(issue => {
-    const match = issue.body.match(/```json\n([\s\S]*?)\n```/);
-    if (!match) return null;
-
-    const parsed = JSON.parse(match[1]);
-    parsed.issueNumber = issue.number;
-    return parsed;
-  }).filter(Boolean);
-
-  res.status(200).json(bookings);
+  res.status(200).json(fresh);
 }
